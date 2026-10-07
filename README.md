@@ -114,4 +114,6 @@ API 키는 Git에 포함하지 않습니다. 빌드하려면 로컬 `secrets.pro
 
 ### 앱 아이콘
 
-파란 배경에 흰 위치 핀과 청록색 교환 화살표를 조합한 1번 시안을 Android vector/adaptive icon으로 적용했습니다. 런처 마스크에 대응하는 여백과 테마 아이콘용 monochrome 리소스를 포함합니다. 원본 시안은 `docs/design/mockpin-icon-concept-1.png`에 보관합니다.
+보라색 배경에 출발 지점과 흰 위치 핀을 화살표로 연결한 3번 시안을 Android vector/adaptive icon으로 적용했습니다. 런처 마스크에 대응하는 여백과 테마 아이콘용 monochrome 리소스를 포함합니다. 선택한 원본 시안은 `docs/design/mockpin-icon-concept-3.png`에 보관합니다.
+
+릴리즈의 부분 패키지 최적화에서 실기기 `IllegalAccessError`가 발생해 현재 최적화는 비활성화했습니다. APK 설치 후 `python3 tools/verify-device-launch.py`로 시작 직후 종료 여부와 화면 진입을 확인합니다.
