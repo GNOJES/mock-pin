@@ -3,7 +3,7 @@
     android:viewportWidth="108" android:viewportHeight="108">
     <group android:pivotX="54" android:pivotY="54" android:scaleX="0.68" android:scaleY="0.68">
         <path android:fillColor="#FFFFFF" android:fillType="evenOdd" android:pathData="M54,35 C44,35 37,42 37,51 C37,61 54,78 54,78 C54,78 71,61 71,51 C71,42 64,35 54,35 Z M54,44 A8,8 0,1 1,54,60 A8,8 0,1 1,54,44 Z" />
-        <path android:fillColor="#00E5F3" android:fillType="evenOdd" android:pathData="M44,18 C21,22 10,39 12,56 C14,70 23,78 39,81 C25,73 20,64 20,54 C20,41 29,30 44,28 L44,36 Q44,39 47,37 L60,27 Q63,25 60,23 L47,14 Q43,11 44,18 Z" />
-        <path android:fillColor="#00E5F3" android:fillType="evenOdd" android:pathData="M64,90 C87,86 98,69 96,52 C94,38 85,30 69,27 C83,35 88,44 88,54 C88,67 79,78 64,80 L64,72 Q64,69 61,71 L48,81 Q45,83 48,85 L61,94 Q65,97 64,90 Z" />
+        <path android:fillColor="#FFFFFF" android:fillType="evenOdd" android:pathData="M44,18 C21,22 10,39 12,56 C14,70 23,78 39,81 C25,73 20,64 20,54 C20,41 29,30 44,28 L44,36 Q44,39 47,37 L60,27 Q63,25 60,23 L47,14 Q43,11 44,18 Z" />
+        <path android:fillColor="#FFFFFF" android:fillType="evenOdd" android:pathData="M64,90 C87,86 98,69 96,52 C94,38 85,30 69,27 C83,35 88,44 88,54 C88,67 79,78 64,80 L64,72 Q64,69 61,71 L48,81 Q45,83 48,85 L61,94 Q65,97 64,90 Z" />
     </group>
 </vector>

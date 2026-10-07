@@ -106,8 +106,12 @@ SDK 36에 맞는 stable 버전 조합을 사용합니다. Maps Compose 9.0과 �
 
 공식 참고: [FLP mock mode](https://developers.google.com/android/reference/com/google/android/gms/location/FusedLocationProviderClient), [location FGS](https://developer.android.com/develop/background-work/services/fgs/service-types#location), [Places Autocomplete New](https://developers.google.com/maps/documentation/places/android-sdk/place-autocomplete), [Places release notes](https://developers.google.com/maps/documentation/places/android-sdk/release-notes), [Maps Compose releases](https://github.com/googlemaps/android-maps-compose/releases).
 
-## v0.1.0 릴리즈 빌드
+## 릴리즈 빌드
 
-`./gradlew testDebugUnitTest assembleRelease lintRelease`로 빌드합니다. APK는 `app/build/outputs/apk/release/app-release.apk`에 생성되며, 요청한 대로 로컬 Android debug keystore로 서명합니다. `versionName`은 `0.1.0`, `versionCode`는 `1`입니다.
+`./gradlew testDebugUnitTest assembleRelease lintRelease`로 빌드합니다. APK는 `app/build/outputs/apk/release/app-release.apk`에 생성되며, 요청한 대로 로컬 Android debug keystore로 서명합니다. 현재 `versionName`은 `0.1.1`, `versionCode`는 `2`입니다.
 
 API 키는 Git에 포함하지 않습니다. 빌드하려면 로컬 `secrets.properties`에 본인의 키를 설정해야 합니다. 다른 컴퓨터의 debug keystore를 사용하면 SHA-1도 달라지므로 Google Cloud Android 앱 제한에 해당 서명 지문을 등록해야 합니다.
+
+### 앱 아이콘
+
+파란 배경에 흰 위치 핀과 청록색 교환 화살표를 조합한 1번 시안을 Android vector/adaptive icon으로 적용했습니다. 런처 마스크에 대응하는 여백과 테마 아이콘용 monochrome 리소스를 포함합니다. 원본 시안은 `docs/design/mockpin-icon-concept-1.png`에 보관합니다.
