@@ -1,5 +1,6 @@
 package com.gnojes.mockpin.ui
 
+import android.os.SystemClock
 import android.Manifest
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -31,7 +32,7 @@ import kotlinx.coroutines.delay
 
 @Composable
 internal fun LocationMap(selected: SavedLocation, active: SavedLocation?, onSelect: (SavedLocation) -> Unit, onLocate: () -> Unit,
-    onError: (UserError) -> Unit, onKeyHelp: () -> Unit) {
+    onRealLocationConfirmed: () -> Unit, onError: (UserError) -> Unit, onKeyHelp: () -> Unit) {
     var loaded by remember { mutableStateOf(false) }
     var delayed by remember { mutableStateOf(false) }
     val camera = rememberCameraPositionState { position = CameraPosition.fromLatLngZoom(LatLng(selected.latitude, selected.longitude), 15f) }
@@ -40,6 +41,8 @@ internal fun LocationMap(selected: SavedLocation, active: SavedLocation?, onSele
     val client = remember(context) { LocationServices.getFusedLocationProviderClient(context) }
     val currentActive by rememberUpdatedState(active)
     var locating by remember { mutableStateOf(false) }
+    var locatedReal by remember { mutableStateOf<LatLng?>(null) }
+    LaunchedEffect(active) { locatedReal = null }
     val locate: () -> Unit = {
         if (!locating && loaded) scope.launch {
             locating = true
@@ -47,13 +50,17 @@ internal fun LocationMap(selected: SavedLocation, active: SavedLocation?, onSele
             try {
                 val mockPoint = currentActive
                 val target = if (mockPoint != null) LatLng(mockPoint.latitude, mockPoint.longitude) else {
+                    val requestedAt = SystemClock.elapsedRealtimeNanos()
                     val request = CurrentLocationRequest.Builder().setPriority(Priority.PRIORITY_HIGH_ACCURACY)
                         .setMaxUpdateAgeMillis(0).setDurationMillis(15_000).build()
                     val location = client.getCurrentLocation(request, cancellation.token).await()
                     // A stopped mock session must not move the camera to an old mock fix.
                     val latestMock = currentActive
                     if (latestMock != null) LatLng(latestMock.latitude, latestMock.longitude)
-                    else if (location != null && !location.isMock) LatLng(location.latitude, location.longitude)
+                    else if (location != null && !location.isMock) {
+                        if (location.elapsedRealtimeNanos >= requestedAt) onRealLocationConfirmed()
+                        LatLng(location.latitude, location.longitude).also { locatedReal = it }
+                    }
                     else null
                 }
                 if (target != null) camera.animate(CameraUpdateFactory.newLatLngZoom(target, 15f))
@@ -89,8 +96,13 @@ internal fun LocationMap(selected: SavedLocation, active: SavedLocation?, onSele
             Marker(state = rememberUpdatedMarkerState(LatLng(selected.latitude, selected.longitude)), title = "선택: ${selected.name}",
                 snippet = selected.coordinates, icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_AZURE))
             active?.let {
-                Marker(state = rememberUpdatedMarkerState(LatLng(it.latitude, it.longitude)), title = "Mock Location ACTIVE: ${it.name}",
+                Marker(state = rememberUpdatedMarkerState(LatLng(it.latitude, it.longitude)), title = "현재 위치 (모의 위치): ${it.name}",
                     snippet = it.coordinates, icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED), zIndex = 1f)
+            }
+            if (active == null) locatedReal?.let { position ->
+                Marker(state = rememberUpdatedMarkerState(position), title = "현재 위치",
+                    snippet = "마지막으로 확인한 위치 · 버튼을 눌러 갱신",
+                    icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED), zIndex = 2f)
             }
         }
         Surface(Modifier.align(Alignment.TopEnd).padding(top = 88.dp, end = 12.dp),

@@ -53,6 +53,11 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onResume() {
+        super.onResume()
+        model.refreshSetup(MockSetup.check(this))
+    }
+
     override fun onSaveInstanceState(outState: Bundle) {
         outState.putString("pendingAction", pendingAction)
         pendingPoint?.let {

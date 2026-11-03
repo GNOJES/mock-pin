@@ -11,6 +11,7 @@ data class MockStatus(
     val phase: MockPhase = MockPhase.INACTIVE,
     val current: SavedLocation? = null,
     val error: UserError? = null,
+    val restoration: LocationRestoration = LocationRestoration.NOT_CHECKED,
 ) {
     val running: Boolean get() = phase == MockPhase.ACTIVE || phase == MockPhase.STARTING
     val busy: Boolean get() = phase == MockPhase.STARTING || phase == MockPhase.STOPPING
@@ -21,3 +22,6 @@ object MockServiceState {
     val status = mutable.asStateFlow()
     internal fun publish(status: MockStatus) { mutable.value = status }
 }
+
+internal fun MockStatus.withConfirmedRealLocation(): MockStatus =
+    if (phase == MockPhase.INACTIVE) copy(restoration = LocationRestoration.CONFIRMED) else this

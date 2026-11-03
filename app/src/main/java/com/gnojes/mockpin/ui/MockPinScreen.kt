@@ -60,7 +60,7 @@ fun MockPinScreen(model: MockPinViewModel, onStart: () -> Unit, onStop: () -> Un
                     val phaseText = when (status.phase) {
                         MockPhase.ACTIVE -> "Mock Location ACTIVE"
                         MockPhase.STARTING -> "Mock Location 시작 중…"
-                        MockPhase.STOPPING -> "Mock Mode 정리 중…"
+                        MockPhase.STOPPING -> if (status.restoration == LocationRestoration.CHECKING) "모의 위치 중지 · 실제 위치 확인 중…" else "Mock Mode 정리 중…"
                         MockPhase.RECOVERY_REQUIRED -> "Mock Mode 정리 필요"
                         MockPhase.INACTIVE -> "Mock Location INACTIVE"
                     }
@@ -85,6 +85,15 @@ fun MockPinScreen(model: MockPinViewModel, onStart: () -> Unit, onStop: () -> Un
                         }
                     }
                     (userError ?: status.error)?.let { ErrorCard(it, showHelp) }
+                    if (status.phase == MockPhase.INACTIVE) when (status.restoration) {
+                        LocationRestoration.CONFIRMED -> Text("새 실제 위치 수신 확인", style = MaterialTheme.typography.bodySmall)
+                        LocationRestoration.UNCONFIRMED -> Column {
+                            Text("모의 위치 해제 완료 · 실제 위치 복귀 미확인", style = MaterialTheme.typography.bodySmall)
+                            Text("‘내 위치로 이동’으로 다시 요청해 보세요. 가상 위치가 계속 남으면 개발자 옵션의 모의 위치 앱을 ‘없음’으로 변경하세요.", style = MaterialTheme.typography.bodySmall)
+                            TextButton(onClick = { onSettings(HelpAction.DEVELOPER_SETTINGS) }) { Text("모의 위치 앱 설정 열기") }
+                        }
+                        else -> Unit
+                    }
                     if (status.running && Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
                         Text("알림 권한을 허용하면 알림에서 STOP할 수 있습니다.", style = MaterialTheme.typography.bodySmall)
                     }
@@ -101,7 +110,7 @@ fun MockPinScreen(model: MockPinViewModel, onStart: () -> Unit, onStop: () -> Un
                 if (model.keyConfigured && playServicesAvailable) LocationMap(selected, status.current?.takeIf { status.running || status.phase == MockPhase.STOPPING },
                     onSelect = { focusManager.clearFocus(); keyboard?.hide(); model.select(it) },
                     onLocate = { focusManager.clearFocus(); keyboard?.hide() },
-                    onError = model::report, onKeyHelp = { keyHelp = true })
+                    onRealLocationConfirmed = model::realLocationConfirmed, onError = model::report, onKeyHelp = { keyHelp = true })
                 else Column(Modifier.align(Alignment.Center).padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                     Text("MockPin", style = MaterialTheme.typography.headlineMedium)
                     Spacer(Modifier.height(12.dp))

@@ -10,7 +10,7 @@ Android 개인용 모의 위치 도구. Kotlin + Jetpack Compose, `com.gnojes.mo
 - 자동완성 최소 2자, 350ms debounce, 최대 5개 결과, 같은 입력 중복 요청 억제, 검색 세션별 토큰. 상세 조회는 ID·표시 이름·주소·좌표만 요청.
 - START → location Foreground Service → `setMockMode(true)` → 약 1초 간격 `setMockLocation()`.
 - 매 업데이트 새 timestamp와 elapsedRealtimeNanos, accuracy 5m, speed/bearing 0. 실행 중 화면을 닫거나 다른 앱으로 이동해도 서비스가 유지됩니다.
-- STOP → 공급 중단 → `setMockMode(false)` 완료 대기 → 알림 제거 및 서비스 종료. 알림에서도 STOP 가능.
+- STOP → 공급 중단 → `setMockMode(false)` 완료 대기 → 새 실제 위치 요청·복귀 확인 → 알림 제거 및 서비스 종료. 알림에서도 STOP 가능.
 - 선택 위치는 파란 marker, 적용 중인 위치는 빨간 marker. 실행 중 다른 곳을 선택하면 **선택 위치 적용**을 눌러 변경합니다.
 - 즐겨찾기 이름·좌표·주소 저장 및 삭제. 최근 실제 적용 위치 10개, 약 10m 이내 중복 제거. DataStore 로컬 저장, 백업/클라우드 전송 비활성화.
 - 권한/개발자 옵션/위치 서비스/FGS/Places 네트워크·quota 오류 안내와 설정 이동.
@@ -108,7 +108,7 @@ SDK 36에 맞는 stable 버전 조합을 사용합니다. Maps Compose 9.0과 �
 
 ## 릴리즈 빌드
 
-`./gradlew testDebugUnitTest assembleRelease lintRelease`로 빌드합니다. APK는 `app/build/outputs/apk/release/app-release.apk`에 생성되며, 요청한 대로 로컬 Android debug keystore로 서명합니다. 현재 `versionName`은 `0.1.1`, `versionCode`는 `2`입니다.
+`./gradlew testDebugUnitTest assembleRelease lintRelease`로 빌드합니다. APK는 `app/build/outputs/apk/release/app-release.apk`에 생성되며, 요청한 대로 로컬 Android debug keystore로 서명합니다. 현재 `versionName`은 `0.1.3`, `versionCode`는 `4`입니다.
 
 API 키는 Git에 포함하지 않습니다. 빌드하려면 로컬 `secrets.properties`에 본인의 키를 설정해야 합니다. 다른 컴퓨터의 debug keystore를 사용하면 SHA-1도 달라지므로 Google Cloud Android 앱 제한에 해당 서명 지문을 등록해야 합니다.
 
@@ -117,3 +117,21 @@ API 키는 Git에 포함하지 않습니다. 빌드하려면 로컬 `secrets.pro
 보라색 배경에 출발 지점과 흰 위치 핀을 화살표로 연결한 3번 시안을 Android vector/adaptive icon으로 적용했습니다. 런처 마스크에 대응하는 여백과 테마 아이콘용 monochrome 리소스를 포함합니다. 선택한 원본 시안은 `docs/design/mockpin-icon-concept-3.png`에 보관합니다.
 
 릴리즈의 부분 패키지 최적화에서 실기기 `IllegalAccessError`가 발생해 현재 최적화는 비활성화했습니다. APK 설치 후 `python3 tools/verify-device-launch.py`로 시작 직후 종료 여부와 화면 진입을 확인합니다.
+
+### 알림과 강제 중지
+
+실행 알림은 가상 위치 공급 상태·좌표·STOP을 표시합니다. 지속 알림으로 설정되어 있으나 Android 14 이상에서는 사용자가 개별 알림을 지울 수 있고 알림 권한도 끌 수 있습니다. 앱에서 이를 완전히 금지할 수 없습니다.
+
+설정의 강제 중지는 앱의 정리 코드 실행을 보장하지 않습니다. 가상 위치가 남은 경우 MockPin을 다시 열고 **Mock Mode 정리**를 누르세요. 다음 GPS 수신 및 다른 앱의 위치 캐시 갱신까지 시간이 걸릴 수 있습니다. 설정 화면에서 돌아오면 필요한 설정을 재검사하여 해결된 설정 안내는 지우고 실제 미정리 상태는 유지합니다.
+
+### STOP 후 실제 위치 복귀 확인
+
+모의 위치 해제 완료 후 foreground service가 최대 15초 동안 새 실제 위치를 요청합니다. 모의 위치가 아니며 요청 이후의 위치일 때만 ‘새 실제 위치 수신 확인’을 표시합니다. 미수신·모의 위치·오래된 위치·권한 오류에서는 ‘실제 위치 복귀 미확인’으로 표시합니다. ‘내 위치로 이동’으로 다시 요청하거나 가상 위치가 계속 남으면 개발자 옵션의 모의 위치 앱을 ‘없음’으로 변경하세요. 실제 위치는 GPS 또는 네트워크 등의 복합 위치이며 위성 GPS 수신 보장을 뜻하지 않습니다. 다른 앱의 자체 캐시까지 지우지는 않습니다. 진단 로그의 `MockPin` 태그에는 해제 성공 여부와 복귀 확인 결과만 기록하며 좌표는 기록하지 않습니다.
+
+2026-10-12 Galaxy S25 / Android 16 실기기 확인: 기존 STOP 직후 native fused의 마지막 위치에는 mock 기록이 남았고 새 현재 위치 요청으로 실제 위치가 갱신되었습니다. 개선본의 정상 STOP에서는 약 4.5초 뒤 새 non-mock 위치 수신을 확인했습니다. 강제 중지 후 복구에서는 해제 API가 성공했지만 새 위치 요청이 만료되어 복귀 미확인을 표시했습니다. 재요청도 실패한 뒤 모의 위치 앱 지정을 해제하자 실제 위치가 수신됐습니다. 따라서 강제 종료 경로의 기기·Google Play services 상태까지 앱이 항상 자동 복구한다고 보장하지 않으며, 지정 해제 안내를 유지합니다. 내 위치 재요청에서 새 실제 위치가 확인되면 이전 복귀 미확인 안내도 갱신합니다.
+
+### v0.1.3
+
+- 현재 위치 버튼으로 조회한 위치를 빨간 마커로 표시합니다. 선택한 START 대상은 파란 마커로 유지하며, 현재 위치 마커는 마지막 조회 결과입니다.
+- STOP 후 모의 위치 해제와 새 실제 위치 수신 확인을 구분합니다. 복귀 미확인 시 재요청 및 모의 위치 앱 지정 해제 안내를 제공합니다.
+- 설정 화면에서 돌아오면 해결된 설정 안내를 갱신합니다. 강제 중지 후 정리가 필요한 상태는 유지합니다.

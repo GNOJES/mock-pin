@@ -48,7 +48,7 @@ class MockPinViewModel(application: Application, private val savedState: SavedSt
     init {
         if (!status.value.running && !status.value.busy && MockLocationService.hasPendingCleanup(application)) {
             MockServiceState.publish(MockStatus(MockPhase.RECOVERY_REQUIRED, error = UserError(
-                "이전 실행의 Mock Mode 정리를 확인할 수 없습니다. 위치 권한과 모의 위치 앱 설정을 확인한 뒤 정리해 주세요.", HelpAction.DEVELOPER_SETTINGS)))
+                "이전 실행이 정상 종료되지 않아 가상 위치가 남아 있을 수 있습니다. ‘Mock Mode 정리’를 눌러 실제 위치로 복귀하세요.", HelpAction.DEVELOPER_SETTINGS)))
         }
         if (search.value.query.isNotBlank()) queryChanged(search.value.query, force = true)
     }
@@ -112,5 +112,21 @@ class MockPinViewModel(application: Application, private val savedState: SavedSt
     }
     fun report(error: UserError) { errorMutable.value = error }
     fun dismissError() { errorMutable.value = null }
+    fun realLocationConfirmed() {
+        val current = status.value
+        val confirmed = current.withConfirmedRealLocation()
+        if (confirmed != current) MockServiceState.publish(confirmed)
+        if (current.phase == MockPhase.INACTIVE && errorMutable.value?.action == HelpAction.LOCATION_SETTINGS)
+            errorMutable.value = null
+    }
+    fun refreshSetup(currentSetupError: UserError?) {
+        errorMutable.update { refreshSetupError(it, currentSetupError) }
+        val current = status.value
+        if (current.phase == MockPhase.INACTIVE || current.phase == MockPhase.RECOVERY_REQUIRED) {
+            val refreshed = refreshSetupError(current.error, currentSetupError,
+                recoveryRequired = current.phase == MockPhase.RECOVERY_REQUIRED)
+            if (refreshed != current.error) MockServiceState.publish(current.copy(error = refreshed))
+        }
+    }
     private fun reportStorageError() { report(UserError("저장 위치를 읽거나 저장하지 못했습니다. 앱 저장 공간을 확인해 주세요.")) }
 }

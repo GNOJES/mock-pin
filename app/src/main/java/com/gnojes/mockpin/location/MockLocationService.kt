@@ -7,6 +7,7 @@ import android.content.pm.ServiceInfo
 import android.os.IBinder
 import android.os.PowerManager
 import android.os.SystemClock
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import com.gnojes.mockpin.MainActivity
@@ -19,6 +20,7 @@ import kotlinx.coroutines.*
 class MockLocationService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private lateinit var driver: MockDriver
+    private lateinit var verifier: RealLocationVerifier
     private var job: Job? = null
     private var target = SavedLocation.DEFAULT
     private lateinit var recentRecorder: RecentRecorder
@@ -28,6 +30,8 @@ class MockLocationService : Service() {
     override fun onCreate() {
         super.onCreate()
         driver = FusedMockDriver(this)
+        val restorationSource = FusedRestorationSource(this)
+        verifier = RealLocationVerifier(restorationSource::request, SystemClock::elapsedRealtimeNanos)
         recentRecorder = RecentRecorder { LocationStore(this).recordRecent(it) }
         getSystemService(NotificationManager::class.java).createNotificationChannel(
             NotificationChannel(CHANNEL, "Mock location", NotificationManager.IMPORTANCE_LOW))
@@ -94,7 +98,7 @@ class MockLocationService : Service() {
             } catch (_: CancellationException) {
                 // STOP or service destruction; MockSession already awaited cleanup.
             } catch (error: Exception) { failure = MockSetup.error(error) }
-            finally { finish(cleanupFailed, failure) }
+            finally { finishWithRestoration(cleanupFailed, failure) }
         }
     }
 
@@ -116,14 +120,33 @@ class MockLocationService : Service() {
             var failed = false
             try { withContext(NonCancellable) { withTimeout(10_000) { driver.disable() } } }
             catch (_: Exception) { failed = true }
-            finally { finish(failed, if (failed) UserError("Mock Mode 정리에 실패했습니다. 모의 위치 앱 설정과 위치 권한을 확인한 뒤 재시도해 주세요.", HelpAction.DEVELOPER_SETTINGS) else null) }
+            finally { finishWithRestoration(failed, if (failed) UserError("Mock Mode 정리에 실패했습니다. 모의 위치 앱 설정과 위치 권한을 확인한 뒤 재시도해 주세요.", HelpAction.DEVELOPER_SETTINGS) else null) }
         }
     }
 
-    private fun finish(cleanupFailed: Boolean, error: UserError?) {
+    private suspend fun finishWithRestoration(cleanupFailed: Boolean, error: UserError?) = withContext(NonCancellable) {
+        if (cleanupFailed) {
+            Log.w("MockPin", "Mock mode disable failed; recovery required")
+            finish(true, error)
+        } else {
+            Log.i("MockPin", "Mock mode disable succeeded; requesting a fresh non-mock location")
+            MockServiceState.publish(MockServiceState.status.value.copy(phase = MockPhase.STOPPING,
+                restoration = LocationRestoration.CHECKING))
+            runCatching { getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, notification(target, restoring = true)) }
+            var restoration = LocationRestoration.UNCONFIRMED
+            try {
+                restoration = verifier.verify()
+            } finally {
+                Log.i("MockPin", "Location restoration result: $restoration")
+                finish(false, error, restoration)
+            }
+        }
+    }
+
+    private fun finish(cleanupFailed: Boolean, error: UserError?, restoration: LocationRestoration = LocationRestoration.NOT_CHECKED) {
         releaseWakeLock()
         setPendingCleanup(cleanupFailed)
-        MockServiceState.publish(MockStatus(if (cleanupFailed) MockPhase.RECOVERY_REQUIRED else MockPhase.INACTIVE, error = error))
+        MockServiceState.publish(MockStatus(if (cleanupFailed) MockPhase.RECOVERY_REQUIRED else MockPhase.INACTIVE, error = error, restoration = restoration))
         ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
         stopSelf()
     }
@@ -146,7 +169,7 @@ class MockLocationService : Service() {
         getSharedPreferences("mock_lifecycle", MODE_PRIVATE).edit().putBoolean("pending_cleanup", value).commit()
     }
 
-    private fun notification(point: SavedLocation): Notification {
+    private fun notification(point: SavedLocation, restoring: Boolean = false): Notification {
         val open = PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
@@ -154,8 +177,8 @@ class MockLocationService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         return NotificationCompat.Builder(this, CHANNEL)
             .setSmallIcon(R.drawable.ic_mock_pin)
-            .setContentTitle("Mock location active")
-            .setContentText("${point.name} · ${point.coordinates}")
+            .setContentTitle(if (restoring) "모의 위치 중지 · 실제 위치 확인 중" else "Mock location active")
+            .setContentText(if (restoring) "새 실제 위치를 수신하는지 확인하고 있습니다." else "${point.name} · ${point.coordinates}")
             .setContentIntent(open).setOngoing(true).setOnlyAlertOnce(true)
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
             .addAction(0, "STOP", stop).build()
